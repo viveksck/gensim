@@ -141,7 +141,7 @@ class TestWord2VecModel(unittest.TestCase):
         self.assertTrue(model.syn0.shape == (len(model.vocab), 2))
         self.assertTrue(model.syn1.shape == (len(model.vocab), 2))
 
-        model.train(sentences)
+        model.train(sentences, validation_sentences=sentences)
         sims = model.most_similar('graph', topn=10)
         # self.assertTrue(sims[0][0] == 'trees', sims)  # most similar
 
@@ -152,7 +152,7 @@ class TestWord2VecModel(unittest.TestCase):
         self.assertEqual(sims, sims2)
 
         # build vocab and train in one step; must be the same as above
-        model2 = word2vec.Word2Vec(sentences, size=2, min_count=1)
+        model2 = word2vec.Word2Vec(sentences, size=2, min_count=1, validation_sentences=sentences)
         self.models_equal(model, model2)
 
     def testScoring(self):

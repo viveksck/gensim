@@ -338,7 +338,7 @@ class Word2Vec(utils.SaveLoad):
     def __init__(
             self, sentences=None, size=100, alpha=0.025, window=5, min_count=5,
             max_vocab_size=None, sample=0, seed=1, workers=1, min_alpha=0.0001,
-            sg=1, hs=1, negative=0, cbow_mean=0, hashfxn=hash, iter=1, null_word=0):
+            sg=1, hs=1, negative=0, cbow_mean=0, hashfxn=hash, iter=1, null_word=0, validation_sentences=None):
         """
         Initialize the model from an iterable of `sentences`. Each sentence is a
         list of words (unicode strings) that will be used for training.
@@ -413,11 +413,12 @@ class Word2Vec(utils.SaveLoad):
         self.null_word = null_word
         self.train_count = 0
         self.total_train_time = 0
+        self.validation_sentences = validation_sentences 
         if sentences is not None:
             if isinstance(sentences, GeneratorType):
                 raise TypeError("You can't pass a generator as the sentences argument. Try an iterator.")
             self.build_vocab(sentences)
-            self.train(sentences)
+            self.train(sentences, validation_sentences=self.validation_sentences)
 
     def make_cum_table(self, power=0.75, domain=2**31 - 1):
         """
@@ -638,7 +639,7 @@ class Word2Vec(utils.SaveLoad):
     def _raw_word_count(self, items):
         return sum(len(item) for item in items)
 
-    def train(self, sentences, total_words=None, word_count=0, chunksize=100, total_examples=None, queue_factor=2, report_delay=1):
+    def train(self, sentences, total_words=None, word_count=0, chunksize=100, total_examples=None, queue_factor=2, report_delay=1, validation_sentences=None):
         """
         Update the model's neural weights from a sequence of sentences (can be a once-only generator stream).
         For Word2Vec, each sentence must be a list of unicode strings. (Subclasses may accept other examples.)
@@ -758,6 +759,9 @@ class Word2Vec(utils.SaveLoad):
                     raw_word_count += raw_words
                     done_jobs += 1
                     elapsed = default_timer() - start
+                    if validation_sentences is not None:
+                       scores = self.score(validation_sentences)
+                       logger.info("SCORES:%f", np_sum(scores))
                     if elapsed >= next_report:
                         if total_examples:
                             # examples-based progress %
