@@ -80,6 +80,8 @@ logger = logging.getLogger("gensim.models.word2vec")
 from gensim import utils, matutils  # utility fnc for pickling, common scipy operations etc
 from six import iteritems, itervalues, string_types
 from six.moves import xrange
+from scipy.spatial.distance import cosine
+import numpy as np
 
 
 try:
@@ -224,8 +226,8 @@ class Word2Vec(utils.SaveLoad):
     compatible with the original word2vec implementation via `save_word2vec_format()` and `load_word2vec_format()`.
 
     """
-    def __init__(self, sentences=None, size=100, alpha=0.025, window=5, min_count=5,
-        sample=0, seed=1, workers=1, min_alpha=0.0001, sg=1, hs=1, negative=0, cbow_mean=0):
+    def __init__(self, sentences=None, size=200, alpha=0.025, window=5,min_count=10,
+        sample=0, seed=1, workers=1, min_alpha=0.00001, sg=1, hs=1, negative=0, cbow_mean=0):
         """
         Initialize the model from an iterable of `sentences`. Each sentence is a
         list of words (unicode strings) that will be used for training.
@@ -447,10 +449,22 @@ class Word2Vec(utils.SaveLoad):
                     if word in self.vocab and (self.vocab[word].sample_probability >= 1.0 or self.vocab[word].sample_probability >= random.random_sample())]
                 yield sampled
 
-        # convert input strings to Vocab objects (eliding OOV/downsampled words), and start filling the jobs queue
-        for job_no, job in enumerate(utils.grouper(prepare_sentences(), chunksize)):
-            logger.debug("putting job #%i in the queue, qsize=%i" % (job_no, jobs.qsize()))
-            jobs.put(job)
+        epoch = 0
+        while True:
+            # convert input strings to Vocab objects (eliding OOV/downsampled words), and start filling the jobs queue
+            for job_no, job in enumerate(utils.grouper(prepare_sentences(), chunksize)):
+                logger.debug("putting job #%i in the queue, qsize=%i" % (job_no, jobs.qsize()))
+                jobs.put(job)
+
+            print "Done with epoch", epoch
+            epoch = epoch + 1
+            if epoch >= 3 or (self.converged()):
+                print "Converged"
+                break
+            self.syn0prev = self.syn0.copy()  
+            word_count[0] = 0
+              
+
         logger.info("reached the end of input; waiting to finish %i outstanding jobs" % jobs.qsize())
         for _ in xrange(self.workers):
             jobs.put(None)  # give the workers heads up that they can finish -- no more work!
@@ -463,6 +477,11 @@ class Word2Vec(utils.SaveLoad):
             (word_count[0], elapsed, word_count[0] / elapsed if elapsed else 0.0))
 
         return word_count[0]
+
+    def converged(self):
+        avg_dist = np.mean([cosine(self.syn0[i], self.syn0prev[i]) for i in np.arange(0, self.syn0.shape[0])])
+        print "Average distance", avg_dist
+        return avg_dist < 1.0e-4
 
 
     def reset_weights(self):
@@ -478,6 +497,7 @@ class Word2Vec(utils.SaveLoad):
         if self.negative:
             self.syn1neg = zeros((len(self.vocab), self.layer1_size), dtype=REAL)
         self.syn0norm = None
+        self.syn0prev = self.syn0.copy()
 
 
     def save_word2vec_format(self, fname, fvocab=None, binary=False):

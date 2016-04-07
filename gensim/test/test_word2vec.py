@@ -126,6 +126,7 @@ class TestWord2VecModel(unittest.TestCase):
 
         model.train(sentences)
         sims = model.most_similar('graph', topn=10)
+        print sims
         # self.assertTrue(sims[0][0] == 'trees', sims)  # most similar
 
         # test querying for "most similar" by vector
@@ -148,6 +149,8 @@ class TestWord2VecModel(unittest.TestCase):
 
         model.train(sentences)
         sims = model.most_similar('graph', topn=10)
+
+        print sims
         # self.assertTrue(sims[0][0] == 'trees', sims)  # most similar
 
         # test querying for "most similar" by vector
